@@ -1,0 +1,63 @@
+application:
+  configuration:
+    configuration.imageId:    "ami-246ed34c"
+    configuration.hardwareId: "t1.micro"
+    configuration.locationId: "us-east-1"
+    configuration.login:      "ec2-user"
+  interfaces:
+    configuration:
+      imageId:         bind(compute#configuration.imageId)
+      hardwareId:      bind(compute#configuration.hardwareId)
+      locationId:      bind(compute#configuration.locationId)
+      login:           bind(compute#configuration.login)
+    docker:
+      "*": "bind(docker#docker.*)"
+  components:
+    docker:
+      type: cobalt.docker.Service
+    compute:
+      type: compute.Instance
+    installer:
+      type: workflow.Instance
+      interfaces:
+        compute:
+          networks: consume-signal(map<string, map<string, string>>)
+          exec:     send-command(string command, int timeout => string stdOut, string stdErr => string stdOut, string stdErr, int exitCode)
+        result:
+          networks: publish-signal(map<string, map<string, string>>)
+      required:
+      - compute
+      configuration:
+        configuration.workflows:
+          launch:
+            steps:
+              install:
+                action: execrun
+                parameters:
+                  roles: [ compute ]
+                  isSudo: true
+                  command: [ "yum -y -q update && yum -y -q install docker" ]
+              configure:
+                action: execrun
+                precedingPhases: [ install ]
+                parameters:
+                  roles: [ compute ]
+                  isSudo: true
+                  command: [ "echo 'OPTIONS=--host=tcp://0.0.0.0:2375'>/etc/sysconfig/docker" ]
+              restart:
+                action: execrun
+                precedingPhases: [ configure ]
+                parameters:
+                  roles: [ compute ]
+                  isSudo: true
+                  command: [ "service docker restart" ]
+              get:
+                action: getSignals
+                output:
+                  signals: result
+            return:
+              networks:
+                value: "{signals.compute.networks}"
+  bindings:
+  - [docker#compute, installer]
+  - [installer#compute, compute]

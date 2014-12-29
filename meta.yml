@@ -1,0 +1,14 @@
+kit:
+  name: "Docker Service"
+  link: https://github.com/qubell-bazaar/docker
+  applications:
+    - name: "Docker Service"
+      manifest: https://raw.github.com/qubell-bazaar/docker/master/docker.yml
+  provider:
+    name: Qubell
+    link: http://qubell.com
+  documentation:
+    overview: |
+      This application requires the following items to be configured in your environment:
+        * Cloud account;
+        * Port 2357 open on the firewall.
