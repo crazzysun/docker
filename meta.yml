@@ -11,4 +11,4 @@ kit:
     overview: |
       This application requires the following items to be configured in your environment:
         * Cloud account;
-        * Port 2357 open on the firewall.
+        * Port 2376 open on the firewall.
