@@ -24,7 +24,10 @@ application:
           networks: consume-signal(map<string, map<string, string>>)
           exec:     send-command(string command, int timeout => string stdOut, string stdErr => string stdOut, string stdErr, int exitCode)
         result:
-          networks: publish-signal(map<string, map<string, string>>)
+          address:            publish-signal(string)
+          client-key:         publish-signal(string)
+          client-certificate: publish-signal(string)
+          ca-certificate:     publish-signal(string)
       required:
       - compute
       configuration:
@@ -37,27 +40,78 @@ application:
                   roles: [ compute ]
                   isSudo: true
                   command: [ "yum -y -q update && yum -y -q install docker" ]
-              configure:
-                action: execrun
-                precedingPhases: [ install ]
-                parameters:
-                  roles: [ compute ]
-                  isSudo: true
-                  command: [ "echo 'OPTIONS=--host=tcp://0.0.0.0:2375'>/etc/sysconfig/docker" ]
-              restart:
-                action: execrun
-                precedingPhases: [ configure ]
-                parameters:
-                  roles: [ compute ]
-                  isSudo: true
-                  command: [ "service docker restart" ]
-              get:
+              get-signals:
                 action: getSignals
                 output:
                   signals: result
+              generate-keys:
+                action: execrun
+                precedingPhases: [ install, get-signals ]
+                parameters:
+                  roles: [ compute ]
+                  isSudo: false
+                  command:
+                  - bash -exc
+                  - |
+                      mkdir -p certs
+                      cd certs
+                      echo 01 > ca.srl
+                      openssl genrsa -out ca-key.pem     2048
+                      openssl genrsa -out server-key.pem 2048
+                      openssl genrsa -out client-key.pem 2048
+                      openssl req -new -nodes -x509 -days 3650 -subj '/O=Docker' -key ca-key.pem -out ca.pem
+                      openssl req -new -nodes -subj '/CN=*' -key server-key.pem -out server.csr
+                      echo 'subjectAltName = IP:{$.signals.compute.networks.public.ip}' > extfile.cnf
+                      openssl x509 -req -days 365 -in server.csr -CA ca.pem -CAkey ca-key.pem -out server-cert.pem -extfile extfile.cnf
+                      openssl req -new -nodes -subj '/CN=client' -key client-key.pem -out client.csr
+                      echo 'extendedKeyUsage = clientAuth' > extfile.cnf
+                      openssl x509 -req -days 365 -in client.csr -CA ca.pem -CAkey ca-key.pem -out client-cert.pem -extfile extfile.cnf
+              configure:
+                action: execrun
+                precedingPhases: [ generate-keys ]
+                parameters:
+                  roles: [ compute ]
+                  isSudo: true
+                  command:
+                  - bash -exc
+                  - |
+                      mkdir -p /var/ssl
+                      cp certs/ca.pem certs/server-cert.pem certs/server-key.pem /var/ssl/
+                      echo "OPTIONS='--host=tcp://0.0.0.0:2376 --tlsverify --tlscacert=/var/ssl/ca.pem --tlscert=/var/ssl/server-cert.pem --tlskey=/var/ssl/server-key.pem'" >/etc/sysconfig/docker
+                      service docker restart
+              get-private-key:
+                action: execrun
+                precedingPhases: [ generate-keys ]
+                parameters:
+                  roles: [ compute ]
+                  isSudo: false
+                  command: [ "cat certs/client-key.pem" ]
+                output:
+                  clientKey: stdout
+              get-client-certificate:
+                action: execrun
+                precedingPhases: [ generate-keys ]
+                parameters:
+                  roles: [ compute ]
+                  isSudo: false
+                  command: [ "cat certs/client-cert.pem" ]
+                output:
+                  clientCertificate: stdout
+              get-ca-certificate:
+                action: execrun
+                precedingPhases: [ generate-keys ]
+                parameters:
+                  roles: [ compute ]
+                  isSudo: false
+                  command: [ "cat certs/ca.pem" ]
+                output:
+                  caCertificate: stdout
             return:
-              networks:
-                value: "{signals.compute.networks}"
+              address:            { value: "{$.signals.compute.networks.public.ip}" }
+              client-key:         { value: "{$.clientKey[*][0]}"                    }
+              client-certificate: { value: "{$.clientCertificate[*][0]}"            }
+              ca-certificate:     { value: "{$.caCertificate[*][0]}"                }
   bindings:
-  - [docker#compute, installer]
+  - [docker#host, installer]
+  - [docker#credentials, installer]
   - [installer#compute, compute]
