@@ -1,7 +1,7 @@
 application:
   configuration:
     configuration.imageId:    "ami-246ed34c"
-    configuration.hardwareId: "t1.micro"
+    configuration.hardwareId: "m3.medium"
     configuration.locationId: "us-east-1"
     configuration.login:      "ec2-user"
   interfaces:
