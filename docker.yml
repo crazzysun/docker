@@ -4,12 +4,14 @@ application:
     configuration.hardwareId: "m3.medium"
     configuration.locationId: "us-east-1"
     configuration.login:      "ec2-user"
+    configuration.group:      "default"
   interfaces:
     configuration:
       imageId:         bind(compute#configuration.imageId)
       hardwareId:      bind(compute#configuration.hardwareId)
       locationId:      bind(compute#configuration.locationId)
       login:           bind(compute#configuration.login)
+      group:           bind(compute#configuration.group)
     docker:
       "*": "bind(docker#docker.*)"
   components:
