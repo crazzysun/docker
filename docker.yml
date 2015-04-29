@@ -79,7 +79,7 @@ application:
                   - |
                       mkdir -p /var/ssl
                       cp certs/ca.pem certs/server-cert.pem certs/server-key.pem /var/ssl/
-                      echo "OPTIONS='--host=tcp://0.0.0.0:2376 --tlsverify --tlscacert=/var/ssl/ca.pem --tlscert=/var/ssl/server-cert.pem --tlskey=/var/ssl/server-key.pem'" >/etc/sysconfig/docker
+                      echo "OPTIONS='--host=unix:///var/run/docker.sock --host=tcp://0.0.0.0:2376 --tlsverify --tlscacert=/var/ssl/ca.pem --tlscert=/var/ssl/server-cert.pem --tlskey=/var/ssl/server-key.pem'" >/etc/sysconfig/docker
                       service docker restart
               get-private-key:
                 action: execrun
