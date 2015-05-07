@@ -1,6 +1,6 @@
 application:
   configuration:
-    configuration.imageId:    "ami-246ed34c"
+    configuration.imageId:    "ami-1ccae774"
     configuration.hardwareId: "m3.medium"
     configuration.locationId: "us-east-1"
     configuration.login:      "ec2-user"
