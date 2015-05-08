@@ -41,7 +41,7 @@ application:
                 parameters:
                   roles: [ compute ]
                   isSudo: true
-                  command: [ "yum -y -q update && yum -y -q install docker" ]
+                  command: [ "yum -y -q install docker" ]
               get-signals:
                 action: getSignals
                 output:
