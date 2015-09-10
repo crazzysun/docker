@@ -41,7 +41,7 @@ application:
                 parameters:
                   roles: [ compute ]
                   isSudo: true
-                  command: [ "yum -y -q install docker" ]
+                  command: [ "yum -y -q install docker-1.6.2-1.3.amzn1" ]
               get-signals:
                 action: getSignals
                 output:
