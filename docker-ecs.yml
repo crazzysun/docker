@@ -1,0 +1,111 @@
+application:
+  interfaces:
+    cluster-config:
+      name: bind(docker-service-adapter#configuration.ecs-cluster-name)
+      '*': bind(cluster#input.*)
+    docker: 
+      '*': bind(docker-service-adapter#docker.*)
+    cluster-info:
+      '*': bind(cluster#result.*)
+  configuration: 
+    cluster-config.name: default
+    cluster-config.ami-image: us-east-1/ami-b540eade
+    cluster-config.instance-type: m3.medium
+    cluster-config.size: 1
+  bindings:
+    - [aws-ca, cluster]
+    - [aws-ca, docker-service-adapter]
+  components:
+    aws-ca:
+      type: reference.Service
+      interfaces:
+        dynamic:
+          amazon-api-call: receive-command(string method, string endpoint, map<string, string> headers, string body => string body)
+    docker-service-adapter:
+      type: cobalt.docker.AmazonEcsService
+    cluster:
+      type: workflow.Instance
+      interfaces: 
+        input:
+          name: configuration(string)
+          ami-image: 
+            type: configuration(string)
+            suggestions:
+              us-east-1: us-east-1/ami-b540eade
+              eu-west-1: eu-west-1/ami-2aaef35d
+          instance-type: 
+            type: configuration(string)
+            suggestions:
+              m3.medium: m3.medium
+              c3.large: c3.large
+          size: configuration(int)
+        aws-ca:
+          amazon-api-call: send-command(string method, string endpoint, map<string, string> headers, string body => string body)
+        result:
+          ecs-cluster-name: publish-signal(string)
+          ecs-cluster-arn: publish-signal(string)
+          ecs-cluster-nodes: publish-signal(list<string>)
+      required: [aws-ca]
+      configuration:
+        configuration.propagateStatus: [update]
+        configuration.triggers:
+          input.size: update
+        configuration.workflows:
+          launch: 
+            steps: 
+              - create-cluster:
+                  action: aws-ca.amazon-api-call
+                  parameters:
+                    method: POST
+                    endpoint: http://ecs.us-east-1.amazonaws.com/  # TODO zone-dependent
+                    headers:
+                      X-Amz-Target: AmazonEC2ContainerServiceV20141113.CreateCluster
+                      Content-Type: application/x-amz-json-1.1
+                    body: ' {{ "clusterName": "{$.name}" }} '
+                  output:
+                    create-response: body
+              - scale: &scale-step
+                  action: provisionVms
+                  precedingPhases: [ create-cluster ]
+                  parameters:
+                    imageId: '{$.ami-image}'
+                    hardwareId: '{$.instance-type}'
+                    targetQuantity: '{$.size}'
+                    providerSettings:
+                      iamRole: ecsInstanceRole
+                      userData:
+                        |
+                          #!/bin/bash
+                          echo ECS_CLUSTER={$.name} >> /etc/ecs/ecs.config
+                  output:
+                    ips: ips
+            return:
+              ecs-cluster-arn: 
+                value: "{$.create-response.cluster.clusterArn}"
+              ecs-cluster-name:
+                value: "{$.create-response.cluster.clusterName}"
+              ecs-cluster-nodes:
+                value: "{$.ips}"
+
+          update:
+            steps: 
+              - scale: *scale-step
+            return:
+              ecs-cluster-nodes:
+                value: "{$.ips}"
+
+
+          destroy:
+            steps:
+              - kill-vms:
+                  action: undeployEnv
+              - destroy-cluster:
+                  action: aws-ca.amazon-api-call
+                  precedingPhases: [ kill-vms ]
+                  parameters:
+                    method: POST
+                    endpoint: http://ecs.us-east-1.amazonaws.com/  # TODO zone-dependent
+                    headers: 
+                      X-Amz-Target: AmazonEC2ContainerServiceV20141113.DeleteCluster
+                      Content-Type: application/x-amz-json-1.1
+                    body: ' {{ "cluster": "{$.name}" }} '

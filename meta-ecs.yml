@@ -1,0 +1,15 @@
+kit:
+  name: "ECS Docker Service"
+  link: https://github.com/qubell-bazaar/docker
+  applications:
+    - name: "ECS Docker Service"
+      manifest: https://raw.github.com/qubell-bazaar/docker/master/docker-ecs.yml
+  provider:
+    name: Qubell
+    link: http://qubell.com
+  documentation:
+    overview: |
+      This application requires the following items to be configured in your environment:
+        * AWS Cloud Account;
+        * PassRole permission in your amazon account;
+        * Platform version >= 44.
