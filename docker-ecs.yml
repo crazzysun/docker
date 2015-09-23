@@ -1,20 +1,19 @@
 application:
   interfaces:
     cluster-config:
-      name: bind(docker-service-adapter#configuration.ecs-cluster-name)
       '*': bind(cluster#input.*)
     docker: 
       '*': bind(docker-service-adapter#docker.*)
     cluster-info:
       '*': bind(cluster#result.*)
   configuration: 
-    cluster-config.name: default
     cluster-config.ami-image: us-east-1/ami-b540eade
     cluster-config.instance-type: m3.medium
     cluster-config.size: 1
   bindings:
     - [aws-ca, cluster]
     - [aws-ca, docker-service-adapter]
+    - [cluster, docker-service-adapter]
   components:
     aws-ca:
       type: reference.Service
@@ -27,7 +26,6 @@ application:
       type: workflow.Instance
       interfaces: 
         input:
-          name: configuration(string)
           ami-image: 
             type: configuration(string)
             suggestions:
@@ -53,15 +51,20 @@ application:
         configuration.workflows:
           launch: 
             steps: 
+              - get-instance-id:
+                  action: getInstanceContext
+                  output:
+                    instanceId: instanceId
               - create-cluster:
                   action: aws-ca.amazon-api-call
+                  precedingPhases: [ get-instance-id ]
                   parameters:
                     method: POST
                     endpoint: http://ecs.us-east-1.amazonaws.com/  # TODO zone-dependent
                     headers:
                       X-Amz-Target: AmazonEC2ContainerServiceV20141113.CreateCluster
                       Content-Type: application/x-amz-json-1.1
-                    body: ' {{ "clusterName": "{$.name}" }} '
+                    body: ' {{ "clusterName": "tonomi-cluster-{$.instanceId}" }} '
                   output:
                     create-response: body
               - scale: &scale-step
@@ -76,7 +79,7 @@ application:
                       userData:
                         |
                           #!/bin/bash
-                          echo ECS_CLUSTER={$.name} >> /etc/ecs/ecs.config
+                          echo ECS_CLUSTER=tonomi-cluster-{$.instanceId} >> /etc/ecs/ecs.config
                   output:
                     ips: ips
             return:
@@ -89,6 +92,14 @@ application:
 
           update:
             steps: 
+              - get-instance-id:
+                  action: getInstanceContext
+                  output:
+                    instanceId: instanceId            
+              - create-cluster:
+                  action: wait
+                  parameters:
+                    delay: 0 seconds
               - scale: *scale-step
             return:
               ecs-cluster-nodes:
@@ -99,13 +110,17 @@ application:
             steps:
               - kill-vms:
                   action: undeployEnv
+              - get-instance-id:
+                  action: getInstanceContext
+                  output:
+                    instanceId: instanceId                  
               - destroy-cluster:
                   action: aws-ca.amazon-api-call
-                  precedingPhases: [ kill-vms ]
+                  precedingPhases: [ kill-vms, get-instance-id ]
                   parameters:
                     method: POST
                     endpoint: http://ecs.us-east-1.amazonaws.com/  # TODO zone-dependent
                     headers: 
                       X-Amz-Target: AmazonEC2ContainerServiceV20141113.DeleteCluster
                       Content-Type: application/x-amz-json-1.1
-                    body: ' {{ "cluster": "{$.name}" }} '
+                    body: ' {{ "cluster": "tonomi-cluster-{$.instanceId}" }} '
