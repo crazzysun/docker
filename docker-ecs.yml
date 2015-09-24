@@ -7,7 +7,9 @@ application:
     cluster-info:
       '*': bind(cluster#result.*)
   configuration: 
-    cluster-config.ami-image: us-east-1/ami-b540eade
+    cluster-config.zone: 
+      zone: us-east-1
+      image: us-east-1/ami-b540eade
     cluster-config.instance-type: m3.medium
     cluster-config.size: 1
   bindings:
@@ -26,11 +28,15 @@ application:
       type: workflow.Instance
       interfaces: 
         input:
-          ami-image: 
-            type: configuration(string)
+          zone: 
+            type: configuration(map<string,string>)
             suggestions:
-              us-east-1: us-east-1/ami-b540eade
-              eu-west-1: eu-west-1/ami-2aaef35d
+              us-east-1: 
+                zone: us-east-1
+                image: us-east-1/ami-b540eade
+              eu-west-1: 
+                zone: eu-west-1
+                image: eu-west-1/ami-2aaef35d
           instance-type: 
             type: configuration(string)
             suggestions:
@@ -60,7 +66,7 @@ application:
                   precedingPhases: [ get-instance-id ]
                   parameters:
                     method: POST
-                    endpoint: http://ecs.us-east-1.amazonaws.com/  # TODO zone-dependent
+                    endpoint: http://ecs.{$.zone.zone}.amazonaws.com/
                     headers:
                       X-Amz-Target: AmazonEC2ContainerServiceV20141113.CreateCluster
                       Content-Type: application/x-amz-json-1.1
@@ -71,7 +77,7 @@ application:
                   action: provisionVms
                   precedingPhases: [ create-cluster ]
                   parameters:
-                    imageId: '{$.ami-image}'
+                    imageId: '{$.zone.image}'
                     hardwareId: '{$.instance-type}'
                     targetQuantity: '{$.size}'
                     providerSettings:
@@ -87,6 +93,8 @@ application:
                 value: "{$.create-response.cluster.clusterArn}"
               ecs-cluster-name:
                 value: "{$.create-response.cluster.clusterName}"
+              ecs-cluster-zone:
+                value: "{$.zone.zone}"
               ecs-cluster-nodes:
                 value: "{$.ips}"
 
@@ -119,7 +127,7 @@ application:
                   precedingPhases: [ kill-vms, get-instance-id ]
                   parameters:
                     method: POST
-                    endpoint: http://ecs.us-east-1.amazonaws.com/  # TODO zone-dependent
+                    endpoint: http://ecs.{$.zone.zone}.amazonaws.com/
                     headers: 
                       X-Amz-Target: AmazonEC2ContainerServiceV20141113.DeleteCluster
                       Content-Type: application/x-amz-json-1.1
