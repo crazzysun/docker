@@ -49,6 +49,7 @@ application:
           ecs-cluster-name: publish-signal(string)
           ecs-cluster-arn: publish-signal(string)
           ecs-cluster-nodes: publish-signal(list<string>)
+          ecs-cluster-zone: publish-signal(string)
       required: [aws-ca]
       configuration:
         configuration.propagateStatus: [update]
