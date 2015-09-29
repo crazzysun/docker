@@ -81,6 +81,7 @@ application:
                     imageId: '{$.zone.image}'
                     hardwareId: '{$.instance-type}'
                     targetQuantity: '{$.size}'
+                    retryCount: 3
                     providerSettings:
                       iamRole: ecsInstanceRole
                       userData:
