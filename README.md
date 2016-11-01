@@ -2,7 +2,7 @@
 
 Installs and configures Docker service.
 
-[![Install](https://raw.github.com/qubell-bazaar/component-skeleton/master/img/install.png)](https://express.qubell.com/applications/upload?metadataUrl=https://raw.github.com/qubell-bazaar/docker/master/meta.yml)
+[![Install](https://raw.github.com/qubell-bazaar/component-skeleton/master/img/install.png)](http://localhost:9000/applications/upload?metadataUrl=https://raw.github.com/qubell-bazaar/docker/master/meta.yml)
 
 
 # ECS Docker Service
