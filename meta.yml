@@ -4,6 +4,7 @@ kit:
   applications:
     - name: "Docker Service"
       manifest: https://raw.github.com/qubell-bazaar/docker/master/docker.yml
+      service: "true"
   provider:
     name: Qubell
     link: http://qubell.com
